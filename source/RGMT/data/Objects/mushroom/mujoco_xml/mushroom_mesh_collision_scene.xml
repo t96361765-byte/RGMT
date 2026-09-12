@@ -1,0 +1,21 @@
+<mujoco model="mushroom_mesh_collision">
+  <compiler angle="radian" meshdir="." texturedir="." autolimits="true"/>
+  <option timestep="0.002" gravity="0 0 -9.81"/>
+  <asset>
+    <mesh name="mushroom_visual" file="mushroom_visual.obj"/>
+    <material name="visual_mat" rgba="0.72 0.55 0.34 1"/>
+    <material name="collision_mat" rgba="0.2 0.8 0.2 0.22"/>
+  </asset>
+
+  <worldbody>
+    <geom name="floor" type="plane" size="2 2 0.05" rgba="0.8 0.8 0.8 1"/>
+    <body name="mushroom_body" pos="0 0 0.276493043">
+      <inertial pos="0 0 0"
+                mass="1"
+                diaginertia="0.0619598482 0.0623399405 0.073334187"/>
+      <freejoint/>
+      <geom name="mushroom_visual_mesh_collision" type="mesh" mesh="mushroom_visual"
+            material="visual_mat" friction="0.8 0.02 0.001"/>
+    </body>
+  </worldbody>
+</mujoco>

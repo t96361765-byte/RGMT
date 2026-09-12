@@ -1,0 +1,31 @@
+[package]
+
+# Semantic Versioning is used: https://semver.org/
+version = "0.1.0"
+
+# Description
+category = "isaaclab"
+readme  = "README.md"
+
+title = "Extreme-RGMT Stage I for Unitree G1"
+author = "RGMT contributors"
+maintainer = "RGMT contributors"
+description="DirectRLEnv implementation of Extreme-RGMT Stage-I motion tracking for the Unitree G1"
+repository = ""
+keywords = ["isaaclab", "motion-tracking", "humanoid", "extreme-rgmt", "rsl-rl"]
+
+[dependencies]
+"isaaclab" = {}
+"isaaclab_rl" = {}
+
+[[python.module]]
+name = "RGMT"
+
+[isaac_lab_settings]
+# TODO: Uncomment and list any apt dependencies here.
+#       If none, leave it commented out.
+# apt_deps = ["example_package"]
+# TODO: Uncomment and provide path to a ros_ws
+#       with rosdeps to be installed. If none,
+#       leave it commented out.
+# ros_ws = "path/from/extension_root/to/ros_ws"
