@@ -137,7 +137,7 @@ Set-Location D:\GitHub\RGMT
   --full-motions `
   --disable-early-termination `
   --num_envs 1 `
-  --checkpoint "D:\GitHub\RGMT\logs\rsl_rl\extreme_rgmt_stage2_g1\2026-09-10_01-05-57_flare-v1_continue2\model_80000.pt" `
+  --checkpoint "D:\GitHub\RGMT\logs\stage2\model_28000.pt" `
   --seed 42 `
   --real-time `
   --reference-robot `
