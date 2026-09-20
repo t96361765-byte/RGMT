@@ -563,6 +563,8 @@ class ExtremeRGMTG1Env(DirectRLEnv):
         time_out = self.episode_length_buf >= self.max_episode_length - 1
         if self._motion_dataset is not None:
             future_horizon = (self.cfg.command_window_steps // 2) * self.step_dt
+            if self.cfg.play_to_motion_end:
+                future_horizon = 0.0
             motion_end = self._motion_times() + future_horizon >= self._motion_dataset.durations[self._clip_ids]
             time_out |= motion_end
 

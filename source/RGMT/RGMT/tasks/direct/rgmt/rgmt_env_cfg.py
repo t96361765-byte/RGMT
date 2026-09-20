@@ -180,6 +180,9 @@ class ExtremeRGMTG1EnvCfg(DirectRLEnvCfg):
     # Play-only deterministic validation mode. Each environment begins at frame zero, advances
     # after reaching the clip end, and retries its current clip after an early termination.
     replay_full_motions = False
+    # Enabled only by full-clip torque recording. The sampler clamps future
+    # reference queries at the final frame instead of ending one window early.
+    play_to_motion_end = False
     # Play-only diagnostic switch. Training leaves this false so failure-driven
     # termination and adaptive sampling behavior remain unchanged.
     disable_early_termination = False

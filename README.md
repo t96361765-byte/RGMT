@@ -128,7 +128,7 @@ Set-Location D:\GitHub\RGMT
 
 ```powershell
 Set-Location D:\GitHub\RGMT
-& D:\miniconda3\envs\env_isaaclab\python.exe `
+python `
   .\scripts\rsl_rl\play.py `
   --task Extreme-RGMT-Stage2-G1-TheShy-Mushroom `
   --motion-file "D:\track_dataset\Flare_50Hz\flare_mushroom_0.85_50Hz.npz" `

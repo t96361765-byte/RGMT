@@ -8,6 +8,7 @@
 """Launch Isaac Sim Simulator first."""
 
 import argparse
+import math
 import sys
 
 from isaaclab.app import AppLauncher
@@ -82,12 +83,42 @@ parser.add_argument(
         "and key-body height errors). Motion-end and episode timeouts remain enabled."
     ),
 )
+parser.add_argument(
+    "--record-torques",
+    action=argparse.BooleanOptionalAction,
+    default=None,
+    help=(
+        "Record 50 Hz unclipped PD target torque to CSV and stop at the first episode end. "
+        "Enabled by default for single-environment Extreme-RGMT-Stage2-G1-TheShy-Mushroom play. "
+        "Use --no-record-torques to retain continuous playback."
+    ),
+)
+parser.add_argument(
+    "--torque-output-dir",
+    type=str,
+    default=None,
+    help="Torque CSV directory (default: this repository's logs/stage2).",
+)
+parser.add_argument(
+    "--torque-duration",
+    type=float,
+    default=None,
+    help="Optional recording duration in simulation seconds, e.g. a known full-circle period.",
+)
 # append RSL-RL cli arguments
 cli_args.add_rsl_rl_args(parser)
 # append AppLauncher cli args
 AppLauncher.add_app_launcher_args(parser)
 # parse the arguments
 args_cli, hydra_args = parser.parse_known_args()
+if args_cli.torque_duration is not None and (
+    not math.isfinite(args_cli.torque_duration) or args_cli.torque_duration <= 0
+):
+    parser.error("--torque-duration must be a finite positive number of seconds.")
+if args_cli.record_torques is False and (
+    args_cli.torque_duration is not None or args_cli.torque_output_dir is not None
+):
+    parser.error("Torque output/duration options cannot be combined with --no-record-torques.")
 # always enable cameras to record video
 if args_cli.video:
     args_cli.enable_cameras = True
@@ -111,6 +142,9 @@ installed_version = metadata.version("rsl-rl-lib")
 
 import os
 import time
+from pathlib import Path
+
+from torque_recorder import TorqueCsvRecorder
 
 import gymnasium as gym
 import torch
@@ -153,6 +187,17 @@ def main(env_cfg: ManagerBasedRLEnvCfg | DirectRLEnvCfg | DirectMARLEnvCfg, agen
     # override configurations with non-hydra CLI arguments
     agent_cfg: RslRlBaseRunnerCfg = cli_args.update_rsl_rl_cfg(agent_cfg, args_cli)
     env_cfg.scene.num_envs = args_cli.num_envs if args_cli.num_envs is not None else env_cfg.scene.num_envs
+    record_torques = args_cli.record_torques
+    if record_torques is None:
+        record_torques = (
+            task_name == "Extreme-RGMT-Stage2-G1-TheShy-Mushroom" and env_cfg.scene.num_envs == 1
+        ) or args_cli.torque_duration is not None or args_cli.torque_output_dir is not None
+    if record_torques and (
+        env_cfg.scene.num_envs != 1 or not isinstance(env_cfg, DirectRLEnvCfg)
+        or not hasattr(env_cfg, "motion_file")
+        or not math.isclose(env_cfg.sim.dt * env_cfg.decimation, 0.02, rel_tol=1e-6)
+    ):
+        raise ValueError("Torque recording requires a single RGMT robot with a 50 Hz policy step.")
     if env_cfg.scene.num_envs == 1 and hasattr(env_cfg, "allow_single_env_playback"):
         env_cfg.allow_single_env_playback = True
         print("[INFO]: Stage-II single-environment playback enabled (acquisition role).")
@@ -185,6 +230,8 @@ def main(env_cfg: ManagerBasedRLEnvCfg | DirectRLEnvCfg | DirectMARLEnvCfg, agen
         if not hasattr(env_cfg, "replay_full_motions"):
             raise ValueError(f"Task {args_cli.task} does not support --full-motions.")
         env_cfg.replay_full_motions = True
+        if record_torques:
+            env_cfg.play_to_motion_end = True
         if args_cli.motion_clip_id is not None:
             env_cfg.fixed_motion_start_time_s = 0.0
     if args_cli.disable_early_termination:
@@ -287,37 +334,67 @@ def main(env_cfg: ManagerBasedRLEnvCfg | DirectRLEnvCfg | DirectMARLEnvCfg, agen
     # reset environment
     obs = env.get_observations()
     timestep = 0
-    # simulate environment
-    while simulation_app.is_running():
-        start_time = time.time()
-        # run everything in inference mode
-        with torch.inference_mode():
-            # agent stepping
-            actions = policy(obs)
-            # env stepping
-            obs, _, dones, _ = env.step(actions)
-            # reset recurrent states for episodes that have terminated
-            if version.parse(installed_version) >= version.parse("4.0.0"):
-                policy.reset(dones)
-            else:
-                policy_nn.reset(dones)
-        if args_cli.video:
+    recorder = None
+    stop_reason = "simulation window closed"
+    try:
+        if record_torques:
+            output_dir = args_cli.torque_output_dir or Path(__file__).resolve().parents[2] / "logs" / "stage2"
+            recorder = TorqueCsvRecorder(env.unwrapped.robot, output_dir)
+            print(f"[INFO]: Recording unclipped PD torque estimates (N m), 50 Hz: {recorder.path}")
+            print("[INFO]: Sampling the first physics substep; stopping at the first episode end or Ctrl+C.")
+            if args_cli.full_motions:
+                print("[INFO]: Recording through the actual clip end; future reference queries clamp to its last frame.")
+            print("[INFO]: One episode/clip is recorded; this does not detect individual full circles.")
+        # simulate environment
+        while simulation_app.is_running():
+            start_time = time.time()
+            with torch.inference_mode():
+                actions = policy(obs)
+                if recorder is not None:
+                    recorder.begin_step(
+                        time_s=timestep * dt,
+                        motion_clip_id=int(env.unwrapped._clip_ids[0].item()),
+                        motion_time_s=float(env.unwrapped._motion_times()[0].item()),
+                    )
+                obs, _, dones, _ = env.step(actions)
+                if recorder is not None:
+                    recorder.end_step()
+                    if bool(dones[0].item()):
+                        stop_reason = "first episode ended (motion end, timeout, or termination)"
+                        break
+                if version.parse(installed_version) >= version.parse("4.0.0"):
+                    policy.reset(dones)
+                else:
+                    policy_nn.reset(dones)
             timestep += 1
-            # Exit the play loop after recording one video
-            if timestep == args_cli.video_length:
+            if recorder is not None and args_cli.torque_duration is not None:
+                if timestep * dt >= args_cli.torque_duration - 1e-9:
+                    stop_reason = "requested torque recording duration reached"
+                    break
+            if args_cli.video and timestep >= args_cli.video_length:
+                stop_reason = "video length reached"
                 break
-
-        # time delay for real-time evaluation
-        sleep_time = dt - (time.time() - start_time)
-        if args_cli.real_time and sleep_time > 0:
-            time.sleep(sleep_time)
-
-    # close the simulator
-    env.close()
+            # time delay for real-time evaluation
+            sleep_time = dt - (time.time() - start_time)
+            if args_cli.real_time and sleep_time > 0:
+                time.sleep(sleep_time)
+    except KeyboardInterrupt:
+        stop_reason = "Ctrl+C"
+        print("\n[INFO]: Playback interrupted; keeping recorded torque samples.")
+    except BaseException:
+        stop_reason = "playback error (partial recording)"
+        raise
+    finally:
+        try:
+            if recorder is not None:
+                recorder.close()
+                print(f"[INFO]: Saved {recorder.rows_written} torque samples to {recorder.path} ({stop_reason}).")
+        finally:
+            env.close()
 
 
 if __name__ == "__main__":
-    # run the main function
-    main()
-    # close sim app
-    simulation_app.close()
+    try:
+        main()
+    finally:
+        simulation_app.close()
