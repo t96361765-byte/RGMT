@@ -16,7 +16,7 @@ from isaaclab.sim import SimulationCfg
 from isaaclab.utils import configclass
 
 from RGMT import RGMT_DATA_DIR
-from RGMT.assets import G1_29DOF_CFG, G1_THESHY_CFG
+from RGMT.assets import G1_THESHY_CFG
 
 from .extreme_randomization import randomize_motor_strength
 
@@ -138,7 +138,7 @@ class ExtremeRGMTG1EnvCfg(DirectRLEnvCfg):
         env_spacing=3.0,
         replicate_physics=True,
     )
-    robot: ArticulationCfg = G1_29DOF_CFG
+    robot: ArticulationCfg = G1_THESHY_CFG
     # Optional static scene prop. It is spawned in env_0 before environment
     # cloning so every environment receives an identical collision object.
     mushroom_spawn: sim_utils.UsdFileCfg | None = None

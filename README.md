@@ -150,20 +150,20 @@ python `
 
 ```powershell
 ### policy.onnx
-& D:\miniconda3\envs\env_isaaclab\python.exe `
+& D:\anaconda3\envs\env_isaaclab\python.exe `
   .\scripts\rsl_rl\play_mujoco.py `
-  --policy "D:\GitHub\RGMT\logs\rsl_rl\extreme_rgmt_stage2_g1\2026-09-03_22-35-10_RGMT_stage2_continue1\exported\policy.onnx" `
-  --motion-file "D:\track_dataset\Extreme-RGMT_50Hz\CMU_90_08_50Hz.npz" `
+  --policy "D:\GitHub\RGMT\logs\stage2\exported\policy.onnx" `
+  --motion-file "C:\Users\31915\Desktop\UnitreeG1\RGMT_50Hz\0910CCspeed12-Bodyljy_50Hz.npz" `
   --device cuda `
   --real-time
 ```
 
 ```powershell
 ### policy.pt
-& D:\miniconda3\envs\env_isaaclab\python.exe `
+& D:\anaconda3\envs\env_isaaclab\python.exe `
   .\scripts\rsl_rl\play_mujoco.py `
-  --policy "D:\GitHub\RGMT\logs\rsl_rl\extreme_rgmt_stage2_g1\2026-09-01_23-18-30_RGMT_stage2\exported\policy.pt" `
-  --motion-file "D:\track_dataset\lafan1_npz\run1_subject2.npz" `
+  --policy "D:\GitHub\RGMT\logs\stage2\exported\policy.pt" `
+  --motion-file "C:\Users\31915\Desktop\UnitreeG1\RGMT_50Hz\0910CCspeed12-Bodyljy_50Hz.npz" `
   --device cuda `
   --real-time
 ```
@@ -172,7 +172,7 @@ python `
 
 ```powershell
 Set-Location D:\GitHub\RGMT
-& D:\miniconda3\envs\env_isaaclab\python.exe `
+& D:\anaconda3\envs\env_isaaclab\python.exe `
   .\scripts\rsl_rl\play_mujoco.py `
   --policy "D:\GitHub\RGMT\logs\rsl_rl\extreme_rgmt_stage2_g1\2026-09-08_19-30-23_flare-v1_continue1\exported\policy.pt" `
   --robot-model "D:\GitHub\RGMT\source\RGMT\data\Robots\G1\g1_theshy\g1_theshy_mushroom.urdf" `
@@ -187,7 +187,7 @@ Set-Location D:\GitHub\RGMT
 
 ```powershell
 Set-Location D:\GitHub\RGMT
-& D:\miniconda3\envs\env_isaaclab\python.exe `
+& D:\anaconda3\envs\env_isaaclab\python.exe `
   -m tensorboard.main `
   --logdir "D:\GitHub\RGMT\logs\rsl_rl\extreme_rgmt_stage2_g1\2026-09-10_01-05-57_flare-v1_continue2" `
   --port 6006

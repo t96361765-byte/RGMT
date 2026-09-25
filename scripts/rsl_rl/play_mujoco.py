@@ -92,39 +92,15 @@ def _default_policy_path() -> Path:
 
 
 def _default_model_path() -> Path:
-    project_fist_pan = (
+    return (
         _repository_root()
         / "source"
         / "RGMT"
         / "data"
         / "Robots"
         / "G1"
-        / "g1_29dof_fist_pan"
-        / "g1_29dof_fist_pan.urdf"
-    )
-    if project_fist_pan.is_file():
-        return project_fist_pan
-
-    # Portable fallbacks retained for deployments copied from the original machine.
-    desktop_scene = (
-        Path.home()
-        / "Desktop"
-        / "江苏省前沿技术研发计划"
-        / "相关模型"
-        / "g1_29dof_fist"
-        / "scene_g1_29dof_fist_plane.xml"
-    )
-    if desktop_scene.is_file():
-        return desktop_scene
-    return (
-        _repository_root().parent
-        / "holosoma"
-        / "src"
-        / "holosoma_retargeting"
-        / "holosoma_retargeting"
-        / "models"
-        / "g1"
-        / "g1_29dof_fist.xml"
+        / "g1_theshy"
+        / "g1_theshy.urdf"
     )
 
 
@@ -150,9 +126,8 @@ def _build_parser() -> argparse.ArgumentParser:
         type=Path,
         default=_default_model_path(),
         help=(
-            "G1 29-DoF MuJoCo scene XML, or a compatible hand-variant URDF. For a URDF, "
-            "the script preserves the default fist MJCF body/contact model and replaces only "
-            "the left/right hand mesh, collision, mass, and inertia from the URDF."
+            "G1 29-DoF MuJoCo scene XML or URDF (default: bundled g1_theshy.urdf). "
+            "URDF models receive a floating base and ground plane."
         ),
     )
     parser.add_argument(
@@ -481,6 +456,7 @@ def _load_floating_urdf(urdf_path: Path, mushroom_scale: float | None = None) ->
         compiler = ET.SubElement(mujoco_extension, "compiler")
     # Mesh filenames in the URDF already begin with ``meshes/``.
     compiler.set("meshdir", str(urdf_path.parent.resolve()))
+    compiler.set("strippath", "false")
     compiler.set("discardvisual", "false")
 
     world_link = ET.Element("link", {"name": "world"})
@@ -555,6 +531,19 @@ def _load_floating_urdf(urdf_path: Path, mushroom_scale: float | None = None) ->
         "light",
         {"pos": "0 0 1.5", "dir": "0 0 -1", "directional": "true"},
     )
+
+    # MuJoCo's URDF importer does not retain <limit effort>. Preserve those
+    # authored limits for the deployment's default model effort profile.
+    for joint in mjcf_root.findall(".//body/joint"):
+        name = joint.get("name")
+        source_limit = urdf_root.find(f"./joint[@name='{name}']/limit")
+        if source_limit is None or source_limit.get("effort") is None:
+            continue
+        effort = float(source_limit.get("effort"))
+        if not math.isfinite(effort) or effort <= 0:
+            raise ValueError(f"Invalid URDF effort limit for {name}: {effort}")
+        joint.set("actuatorfrcrange", f"{-effort:g} {effort:g}")
+        joint.set("actuatorfrclimited", "true")
 
     if mushroom_scale is not None:
         _add_mushroom(mjcf_root, mushroom_scale)
